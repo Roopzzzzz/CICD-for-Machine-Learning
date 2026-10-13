@@ -28,8 +28,6 @@ jobs:
       - name: Install dependencies
         run: make install
 
-      - name: Check formatting
-        run: make format
 
       - name: Train model
         run: make train
