@@ -30,15 +30,22 @@ y = df["Drug"]
 categorical = ["Sex", "BP", "Cholesterol"]
 numerical = ["Age", "Na_to_K"]
 
-preprocessor = ColumnTransformer([
-    ("categorical", OneHotEncoder(handle_unknown="ignore"), categorical),
-    ("numerical", "passthrough", numerical),
-])
+preprocessor = ColumnTransformer(
+    [
+        ("categorical", OneHotEncoder(handle_unknown="ignore"), categorical),
+        ("numerical", "passthrough", numerical),
+    ]
+)
 
-pipeline = Pipeline([
-    ("preprocessor", preprocessor),
-    ("classifier", RandomForestClassifier(n_estimators=100, random_state=42)),
-])
+pipeline = Pipeline(
+    [
+        ("preprocessor", preprocessor),
+        (
+            "classifier",
+            RandomForestClassifier(n_estimators=100, random_state=42),
+        ),
+    ]
+)
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
@@ -54,7 +61,6 @@ f1 = f1_score(y_test, predictions, average="weighted")
 joblib.dump(pipeline, MODEL_DIR / "drug_model.joblib")
 
 # --- ONNX CONVERSION ---
-# Export the fitted pipeline to ONNX format using an input data sample layout
 sample = X_train.iloc[:1]
 onnx_model = to_onnx(
     pipeline,
@@ -71,7 +77,9 @@ with open(RESULTS_DIR / "metrics.txt", "w") as f:
     f.write(f"Weighted F1-score: {f1:.4f}\n\n")
     f.write(classification_report(y_test, predictions))
 
-ConfusionMatrixDisplay.from_predictions(y_test, predictions, xticks_rotation="vertical")
+ConfusionMatrixDisplay.from_predictions(
+    y_test, predictions, xticks_rotation="vertical"
+)
 plt.tight_layout()
 plt.savefig(RESULTS_DIR / "confusion_matrix.png")
 plt.close()
