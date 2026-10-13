@@ -1,4 +1,4 @@
- .PHONY: install format train eval all
+.PHONY: install format train eval all
 
 install:
 	python -m pip install -r requirements.txt
@@ -12,4 +12,4 @@ train:
 eval:
 	cat results/metrics.txt
 
-all: install format train eval
+all: install train eval
