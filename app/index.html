@@ -1,46 +1,279 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drug Classification - ML CI/CD</title>
 
-  <title>ML CI/CD Demonstration</title>
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.min.js"></script>
 
-  <script type="module"
-    src="https://cdn.jsdelivr.net/npm/@gradio/lite/dist/lite.js">
-  </script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111827;
+      color: white;
+      margin: 0;
+      padding: 30px 15px;
+    }
 
-  <link rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/@gradio/lite/dist/lite.css">
+    .container {
+      max-width: 640px;
+      margin: auto;
+      background: #1f2937;
+      padding: 30px;
+      border-radius: 12px;
+    }
+
+    h1 { margin-top: 0; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    input, select, button {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 12px;
+      border-radius: 6px;
+      border: 1px solid #4b5563;
+      font-size: 15px;
+    }
+
+    input, select {
+      background: #374151;
+      color: white;
+    }
+
+    button {
+      margin-top: 24px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #result {
+      margin-top: 20px;
+      padding: 16px;
+      background: #111827;
+      border-radius: 8px;
+      overflow-wrap: anywhere;
+    }
+
+    #status { color: #93c5fd; }
+
+    @media (max-width: 480px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 
 <body>
-  <gradio-lite>
-    import gradio as gr
+  <main class="container">
+    <h1>Drug Classification</h1>
+    <p>
+      Educational ML demonstration using a trained
+      Random Forest pipeline exported to ONNX.
+    </p>
 
-    def predict(age, na_to_k):
-        if age < 0 or na_to_k < 0:
-            return "Enter non-negative values."
+    <p id="status" role="status">Loading model...</p>
 
-        return (
-            "Demo interface working. "
-            "Connect the trained model for real predictions."
-        )
+    <form id="predict-form">
+      <div class="grid">
+        <div>
+          <label for="age">Age</label>
+          <input id="age" type="number" min="0"
+                 max="120" value="25" required>
+        </div>
 
-    demo = gr.Interface(
-        fn=predict,
-        inputs=[
-            gr.Number(label="Age"),
-            gr.Number(label="Na_to_K")
-        ],
-        outputs=gr.Textbox(label="Status"),
-        title="Drug Classification - CI/CD Demo",
-        description="Testing the Gradio-Lite interface."
-    )
+        <div>
+          <label for="sex">Sex</label>
+          <select id="sex">
+            <option value="M">M</option>
+            <option value="F">F</option>
+          </select>
+        </div>
 
-    demo.launch()
-  </gradio-lite>
+        <div>
+          <label for="bp">Blood Pressure Category</label>
+          <select id="bp">
+            <option value="HIGH">HIGH</option>
+            <option value="NORMAL">NORMAL</option>
+            <option value="LOW">LOW</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="cholesterol">Cholesterol Category</label>
+          <select id="cholesterol">
+            <option value="HIGH">HIGH</option>
+            <option value="NORMAL">NORMAL</option>
+          </select>
+        </div>
+
+        <div style="grid-column: 1 / -1">
+          <label for="na_to_k">Na_to_K Ratio</label>
+          <input id="na_to_k" type="number"
+                 min="0.01" step="any"
+                 value="12.0" required>
+        </div>
+      </div>
+
+      <button id="submit-btn" type="submit" disabled>
+        Predict Drug Class
+      </button>
+    </form>
+
+    <section id="result" aria-live="polite">
+      <p>Predicted Class: <strong id="predicted-class">--</strong></p>
+      <p>Model Confidence: <strong id="confidence">--</strong></p>
+    </section>
+  </main>
+
+  <script>
+    const MODEL_URL = "./model/drug_model.onnx";
+    let session = null;
+
+    async function loadModel() {
+      const status = document.getElementById("status");
+
+      try {
+        ort.env.wasm.wasmPaths =
+          "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/";
+
+        ort.env.wasm.numThreads = 1;
+
+        session = await ort.InferenceSession.create(
+          MODEL_URL,
+          { executionProviders: ["wasm"] }
+        );
+
+        console.log("Model inputs:", session.inputNames);
+        console.log("Model outputs:", session.outputNames);
+
+        status.textContent = "Model loaded successfully.";
+        document.getElementById("submit-btn").disabled = false;
+
+      } catch (error) {
+        console.error("Model loading error:", error);
+        status.textContent =
+          "Model loading failed: " + error.message;
+      }
+    }
+
+    document.getElementById("predict-form")
+      .addEventListener("submit", async function(event) {
+        event.preventDefault();
+
+        if (!session) return;
+
+        const button = document.getElementById("submit-btn");
+        const status = document.getElementById("status");
+
+        button.disabled = true;
+        status.textContent = "Predicting...";
+
+        try {
+          const age = Number(
+            document.getElementById("age").value
+          );
+
+          const naToK = Number(
+            document.getElementById("na_to_k").value
+          );
+
+          if (!Number.isFinite(age) ||
+              !Number.isFinite(naToK) ||
+              age < 0 || age > 120 || naToK <= 0) {
+            throw new Error("Enter valid age and Na_to_K values.");
+          }
+
+          // These names and tensor types MUST match
+          // the actual ONNX model input signature.
+          const feeds = {
+            Age: new ort.Tensor(
+              "int64",
+              BigInt64Array.from([BigInt(Math.round(age))]),
+              [1, 1]
+            ),
+            Sex: new ort.Tensor(
+              "string",
+              [document.getElementById("sex").value],
+              [1, 1]
+            ),
+            BP: new ort.Tensor(
+              "string",
+              [document.getElementById("bp").value],
+              [1, 1]
+            ),
+            Cholesterol: new ort.Tensor(
+              "string",
+              [document.getElementById("cholesterol").value],
+              [1, 1]
+            ),
+            Na_to_K: new ort.Tensor(
+              "float64",
+              Float64Array.from([naToK]),
+              [1, 1]
+            )
+          };
+
+          const output = await session.run(feeds);
+
+          console.log("Model output:", output);
+
+          // Check the actual output names in the console.
+          const labelOutput = output.label;
+          const probabilitiesOutput = output.probabilities;
+
+          if (!labelOutput || !probabilitiesOutput) {
+            throw new Error(
+              "Output names differ from label/probabilities. " +
+              "Check the console and model output signature."
+            );
+          }
+
+          const label = labelOutput.data[0];
+          const probabilities = Array.from(
+            probabilitiesOutput.data
+          );
+
+          const maxProbability = Math.max(...probabilities);
+
+          document.getElementById("predicted-class")
+            .textContent = String(label);
+
+          document.getElementById("confidence")
+            .textContent =
+              (maxProbability * 100).toFixed(2) + "%";
+
+          status.textContent = "Prediction completed.";
+
+        } catch (error) {
+          console.error("Prediction error:", error);
+          status.textContent =
+            "Prediction failed: " + error.message;
+
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+    loadModel();
+  </script>
 </body>
 </html>
-
