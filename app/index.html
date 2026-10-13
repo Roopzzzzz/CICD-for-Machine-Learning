@@ -119,18 +119,36 @@
 </div>
 
 <script>
-   const MODEL_URL = "drug_model.onnx";
+  // This tag acts as an entry variable for our automatic injection step
+  const B64_MODEL = "BASE64_MODEL_PLACEHOLDER";
   let session = null;
+
+  function base64ToUint8Array(base64) {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+  }
 
   async function loadModel() {
     try {
-      session = await ort.InferenceSession.create(MODEL_URL);
+      if (B64_MODEL === "BASE64_MODEL_PLACEHOLDER" || B64_MODEL.length < 100) {
+        throw new Error("Model payload is missing or unpopulated by workflow container.");
+      }
+      
+      // Parse base64 directly into an unblocked memory buffer
+      const modelBuffer = base64ToUint8Array(B64_MODEL);
+      session = await ort.InferenceSession.create(modelBuffer);
+      
       const btn = document.getElementById("submit-btn");
       btn.disabled = false;
       btn.textContent = "Predict";
     } catch (e) {
-      console.error("Failed to load ONNX model:", e);
-      document.getElementById("submit-btn").textContent = "Error loading model";
+      console.error("Failed to compile internal ONNX buffer:", e);
+      document.getElementById("submit-btn").textContent = "Error compiling memory buffer";
     }
   }
 
@@ -143,13 +161,12 @@
     const cholesterol = document.getElementById("cholesterol").value;
     const naToK = Number(document.getElementById("na_to_k").value);
 
-    // Build the named explicit tensors required by the ONNX graph layout structure
     const feeds = {
-      Age: new ort.Tensor("int64", BigInt64Array.from([BigInt(Math.round(age))]), [1, 1]),
-      Sex: new ort.Tensor("string", [sex], [1, 1]),
-      BP: new ort.Tensor("string", [bp], [1, 1]),
-      Cholesterol: new ort.Tensor("string", [cholesterol], [1, 1]),
-      Na_to_K: new ort.Tensor("float64", Float64Array.from([naToK]), [1, 1]),
+      Age: new ort.Tensor("int64", BigInt64Array.from([BigInt(Math.round(age))])),
+      Sex: new ort.Tensor("string", [sex]),
+      BP: new ort.Tensor("string", [bp]),
+      Cholesterol: new ort.Tensor("string", [cholesterol]),
+      Na_to_K: new ort.Tensor("float64", Float64Array.from([naToK])),
     };
 
     try {
