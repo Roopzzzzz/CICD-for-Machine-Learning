@@ -36,22 +36,18 @@ jobs:
       - name: Inject Model Into Web Layout and Deploy
         if: github.event_name != 'pull_request'
         run: |
-          # Use a direct, short Python script to swap the placeholder text cleanly without terminal string limits
+          # Use Python to safely read and inject the massive string without any size limits
           python -c "
-          with open('results/model_b64.txt', 'r') as f:
-              b64_data = f.read().strip()
-          
-          with open('app/index.html', 'r') as f:
-              html_content = f.read()
-          
+          from pathlib import Path
+          b64_data = Path('results/model_b64.txt').read_text().strip()
+          html_path = Path('app/index.html')
+          html_content = html_path.read_text()
           updated_html = html_content.replace('BASE64_MODEL_PLACEHOLDER', b64_data)
-          
-          with open('app/index.html', 'w') as f:
-              f.write(updated_html)
-          print('Inline distribution string injected successfully via Python!')
+          html_path.write_text(updated_html)
+          print('Inline string injection successful!')
           "
           
-          # Run official cloud asset sync upward
+          # Deploy everything up to Hugging Face
           python -m pip install --upgrade huggingface_hub
           python -c "
           import os
