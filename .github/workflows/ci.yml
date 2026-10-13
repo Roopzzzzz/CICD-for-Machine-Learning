@@ -47,14 +47,11 @@ jobs:
           } > report.md
           cml comment create report.md
 
-      - name: Deploy to Hugging Face Static Space
-        if: github.event_name != 'pull_request'
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
+           - name: Generate evaluation report
         run: |
-          python -m pip install --upgrade huggingface_hub
-          huggingface-cli login --token "$HF_TOKEN"
+          echo "=== Model Evaluation ==="
+          cat results/metrics.txt
+
           
           # Upload app directory content directly into root space
           huggingface-cli upload "$HF_SPACE_ID" app/ . --repo-type space --commit-message "Deploy Gradio-Lite app structure"
