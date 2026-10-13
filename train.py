@@ -69,7 +69,7 @@ onnx_model = to_onnx(
     options={id(pipeline): {"zipmap": False}},
 )
 
-with open(MODEL_DIR / "drug_model.onnx", "wb") as f:
+with open(Path("app/drug_model.onnx"), "wb") as f:
     f.write(onnx_model.SerializeToString())
 
 with open(RESULTS_DIR / "metrics.txt", "w") as f:
