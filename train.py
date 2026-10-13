@@ -1,3 +1,4 @@
+import base64
 from pathlib import Path
 import json
 import joblib
@@ -69,8 +70,13 @@ onnx_model = to_onnx(
     options={id(pipeline): {"zipmap": False}},
 )
 
-with open(Path("app/drug_model.onnx"), "wb") as f:
-    f.write(onnx_model.SerializeToString())
+# Convert raw bytes into a safe Base64 string payload
+onnx_bytes = onnx_model.SerializeToString()
+b64_string = base64.b64encode(onnx_bytes).decode("utf-8")
+
+# Write the string payload to an artifact file for the CI pipeline runner
+with open(RESULTS_DIR / "model_b64.txt", "w") as f:
+    f.write(b64_string)
 
 with open(RESULTS_DIR / "metrics.txt", "w") as f:
     f.write(f"Accuracy: {accuracy:.4f}\n")
@@ -85,4 +91,4 @@ plt.savefig(RESULTS_DIR / "confusion_matrix.png")
 plt.close()
 
 print(f"Accuracy: {accuracy:.4f}")
-print("ONNX model exported successfully.")
+print("ONNX model text serialization completed.")
