@@ -14,6 +14,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
+from skl2onnx import to_onnx
 
 DATA = Path("data/drug200.csv")
 MODEL_DIR = Path("model")
@@ -49,7 +50,21 @@ predictions = pipeline.predict(X_test)
 accuracy = accuracy_score(y_test, predictions)
 f1 = f1_score(y_test, predictions, average="weighted")
 
+# Save traditional binary backup
 joblib.dump(pipeline, MODEL_DIR / "drug_model.joblib")
+
+# --- ONNX CONVERSION ---
+# Export the fitted pipeline to ONNX format using an input data sample layout
+sample = X_train.iloc[:1]
+onnx_model = to_onnx(
+    pipeline,
+    sample,
+    target_opset=17,
+    options={id(pipeline): {"zipmap": False}},
+)
+
+with open(MODEL_DIR / "drug_model.onnx", "wb") as f:
+    f.write(onnx_model.SerializeToString())
 
 with open(RESULTS_DIR / "metrics.txt", "w") as f:
     f.write(f"Accuracy: {accuracy:.4f}\n")
@@ -62,5 +77,4 @@ plt.savefig(RESULTS_DIR / "confusion_matrix.png")
 plt.close()
 
 print(f"Accuracy: {accuracy:.4f}")
-print(f"Weighted F1-score: {f1:.4f}")
-print("Training and evaluation completed.")
+print("ONNX model exported successfully.")
